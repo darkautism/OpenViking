@@ -201,7 +201,7 @@ class _IdentityASGIMiddleware:
                 origin = _scope_to_origin(scope)
                 if origin:
                     headers["WWW-Authenticate"] = (
-                        f'Bearer resource_metadata="{origin}/.well-known/oauth-protected-resource"'
+                        f'Bearer resource_metadata="{origin}/.well-known/oauth-protected-resource/mcp"'
                     )
             resp = JSONResponse(
                 {"jsonrpc": "2.0", "id": None, "error": {"code": -32001, "message": str(exc)}},

@@ -222,17 +222,19 @@ def _public_origin(request: Request) -> str:
 
 
 @router.get("/.well-known/oauth-protected-resource")
+@router.get("/.well-known/oauth-protected-resource/mcp")
 async def oauth_protected_resource(request: Request) -> JSONResponse:
-    """RFC 9728 — protected resource metadata for /mcp.
+    """RFC 9728 protected resource metadata for the ``/mcp`` resource.
 
-    MCP clients reach this URL via the ``WWW-Authenticate: Bearer
-    resource_metadata=..."`` hint emitted by the /mcp 401 path. The body
-    points them at our authorization server so they can run discovery
-    against /.well-known/oauth-authorization-server.
+    RFC 9728 derives the metadata URL by inserting the well-known component
+    between the origin and the protected resource path.  Therefore a resource
+    identifier ending in ``/mcp`` is discovered at
+    ``/.well-known/oauth-protected-resource/mcp``.  Keep the root path as a
+    compatibility alias for older clients that followed our previous
+    ``WWW-Authenticate`` hint.
     """
-    cfg = getattr(request.app.state, "oauth_config", None)
-    issuer = (cfg.issuer if cfg and cfg.issuer else _public_origin(request)).rstrip("/")
-    resource = f"{_public_origin(request)}/mcp"
+    issuer = _public_origin(request).rstrip("/")
+    resource = f"{issuer}/mcp"
 
     metadata = ProtectedResourceMetadata(
         resource=AnyHttpUrl(resource),

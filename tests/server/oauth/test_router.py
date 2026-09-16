@@ -168,8 +168,15 @@ async def test_metadata_endpoint(client):
 
 
 @pytest.mark.asyncio
-async def test_protected_resource_metadata(client):
-    resp = await client.get("/.well-known/oauth-protected-resource")
+@pytest.mark.parametrize(
+    "metadata_path",
+    [
+        "/.well-known/oauth-protected-resource/mcp",
+        "/.well-known/oauth-protected-resource",  # legacy compatibility alias
+    ],
+)
+async def test_protected_resource_metadata(client, metadata_path):
+    resp = await client.get(metadata_path)
     assert resp.status_code == 200
     body = resp.json()
     assert body["resource"].endswith("/mcp")
@@ -200,6 +207,22 @@ async def test_protected_resource_metadata_honors_public_base_url_env(client, mo
     body = resp.json()
     assert body["resource"] == "https://override.example/mcp"
     assert body["authorization_servers"][0].rstrip("/") == "https://override.example"
+
+
+@pytest.mark.asyncio
+async def test_protected_resource_metadata_public_base_url_env_beats_configured_issuer(
+    app_with_oauth, client, monkeypatch
+):
+    """The public-base deployment override must win over a stale oauth.issuer."""
+    app, _, _ = app_with_oauth
+    app.state.oauth_config.issuer = "https://stale.example"
+    monkeypatch.setenv("OPENVIKING_PUBLIC_BASE_URL", "https://public.example")
+
+    resp = await client.get("/.well-known/oauth-protected-resource/mcp")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["resource"] == "https://public.example/mcp"
+    assert body["authorization_servers"][0].rstrip("/") == "https://public.example"
 
 
 @pytest.mark.asyncio

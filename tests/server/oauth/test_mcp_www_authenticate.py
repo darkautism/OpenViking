@@ -110,7 +110,7 @@ async def test_unauthenticated_request_includes_www_authenticate_when_oauth_enab
     auth_header = resp.headers.get("www-authenticate", "")
     assert auth_header.startswith("Bearer "), auth_header
     assert "resource_metadata=" in auth_header
-    assert "/.well-known/oauth-protected-resource" in auth_header
+    assert "/.well-known/oauth-protected-resource/mcp" in auth_header
     # The origin is derived from the request Host header.
     assert "ov.test" in auth_header
 
@@ -186,4 +186,4 @@ async def test_www_authenticate_honors_x_forwarded_proto():
         )
     assert resp.status_code == 401
     auth_header = resp.headers.get("www-authenticate", "")
-    assert "https://public.example.com/.well-known/oauth-protected-resource" in auth_header
+    assert "https://public.example.com/.well-known/oauth-protected-resource/mcp" in auth_header

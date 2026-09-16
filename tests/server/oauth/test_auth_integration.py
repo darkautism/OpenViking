@@ -19,7 +19,7 @@ from openviking.server.oauth.provider import (
     OpenVikingOAuthProvider,
 )
 from openviking.server.oauth.storage import OAuthStore
-from openviking_cli.exceptions import PermissionDeniedError, UnauthenticatedError
+from openviking_cli.exceptions import UnauthenticatedError
 
 
 def _make_request(
@@ -208,8 +208,8 @@ async def test_oauth_path_skipped_when_disabled(store):
 
 
 @pytest.mark.asyncio
-async def test_oauth_user_role_rejects_account_override(provider, store):
-    """A USER OAuth token cannot impersonate another tenant via header."""
+async def test_oauth_user_role_ignores_account_override(provider, store):
+    """OAuth claims pin identity; assertion headers cannot switch tenants."""
     token = await _mint_token(provider, store, account_id="tenant-a", user_id="alice", role="user")
     request = _make_request(
         bearer=token,
@@ -217,13 +217,17 @@ async def test_oauth_user_role_rejects_account_override(provider, store):
         oauth_provider=provider,
         extra_headers={"x-openviking-account": "tenant-b"},
     )
-    with pytest.raises(PermissionDeniedError):
-        await resolve_identity(
-            request,
-            x_api_key=None,
-            authorization=f"Bearer {token}",
-            x_openviking_account="tenant-b",
-        )
+    identity = await resolve_identity(
+        request,
+        x_api_key=None,
+        authorization=f"Bearer {token}",
+        x_openviking_account="tenant-b",
+    )
+
+    assert identity.account_id == "tenant-a"
+    assert identity.user_id == "alice"
+    assert identity.from_oauth is True
+    assert "x-openviking-account" not in request.headers
 
 
 @pytest.mark.asyncio
