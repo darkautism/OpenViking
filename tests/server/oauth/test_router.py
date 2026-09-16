@@ -37,6 +37,7 @@ from openviking.server.models import ERROR_CODE_TO_HTTP_STATUS
 from openviking.server.oauth.provider import (
     FALLBACK_AUTHORIZE_PAGE,
     MCP_SCOPE,
+    OFFLINE_ACCESS_SCOPE,
     OpenVikingOAuthProvider,
 )
 from openviking.server.oauth.router import router as oauth_router
@@ -123,7 +124,7 @@ async def app_with_oauth(tmp_path):
         issuer_url=AnyHttpUrl(issuer),
         # Mirror app.py's wiring: default_scopes covers DCRs that omit `scope`.
         client_registration_options=ClientRegistrationOptions(
-            enabled=True, default_scopes=[MCP_SCOPE]
+            enabled=True, default_scopes=[MCP_SCOPE, OFFLINE_ACCESS_SCOPE]
         ),
         revocation_options=RevocationOptions(enabled=True),
     )
@@ -167,7 +168,7 @@ async def test_metadata_endpoint(client):
     assert body["registration_endpoint"]
     assert body["token_endpoint_auth_methods_supported"] == ["none"]
     assert body["revocation_endpoint_auth_methods_supported"] == ["none"]
-    assert body["scopes_supported"] == [MCP_SCOPE]
+    assert body["scopes_supported"] == [MCP_SCOPE, OFFLINE_ACCESS_SCOPE]
 
 
 @pytest.mark.asyncio
@@ -185,6 +186,7 @@ async def test_protected_resource_metadata(client, metadata_path):
     assert body["resource"].endswith("/mcp")
     assert body["authorization_servers"]
     assert "header" in body["bearer_methods_supported"]
+    assert body["scopes_supported"] == [MCP_SCOPE]
     # Must be cacheable.
     assert "max-age" in resp.headers.get("cache-control", "")
 
@@ -284,9 +286,45 @@ async def test_authorize_scope_mcp_after_scopeless_dcr(client):
         },
     )
     assert reg.status_code == 201, reg.text
-    assert reg.json().get("scope") == MCP_SCOPE
+    assert reg.json().get("scope") == f"{MCP_SCOPE} {OFFLINE_ACCESS_SCOPE}"
 
     location = await _authorize_with_mcp_scope(client, reg.json()["client_id"], redirect_uri)
+    assert FALLBACK_AUTHORIZE_PAGE in location and "pending=" in location
+    assert not location.startswith(redirect_uri)
+
+
+@pytest.mark.asyncio
+async def test_authorize_mcp_offline_access_after_scopeless_dcr(client):
+    """ChatGPT requests offline_access so it can retain a refresh token."""
+    redirect_uri = "https://chatgpt.com/connector/oauth/cb-offline"
+    reg = await client.post(
+        "/register",
+        json={
+            "redirect_uris": [redirect_uri],
+            "client_name": "ChatGPT",
+            "token_endpoint_auth_method": "none",
+        },
+    )
+    assert reg.status_code == 201, reg.text
+    assert reg.json().get("scope") == f"{MCP_SCOPE} {OFFLINE_ACCESS_SCOPE}"
+
+    _, challenge = _pkce_pair()
+    resp = await client.get(
+        "/authorize",
+        params={
+            "client_id": reg.json()["client_id"],
+            "response_type": "code",
+            "redirect_uri": redirect_uri,
+            "scope": f"{MCP_SCOPE} {OFFLINE_ACCESS_SCOPE}",
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+            "resource": "http://127.0.0.1/mcp",
+            "state": "s-offline",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302, resp.text
+    location = resp.headers["location"]
     assert FALLBACK_AUTHORIZE_PAGE in location and "pending=" in location
     assert not location.startswith(redirect_uri)
 

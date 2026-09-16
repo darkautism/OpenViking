@@ -125,7 +125,11 @@ async def test_provider_get_client_defaults_missing_scope(store):
     rows predating #2921 are NULL) must still pass validate_scope for the
     "mcp" scope the PRM document advertises. #2921 persisted the scope when
     the registrar sent one; this covers the scope-less registration."""
-    from openviking.server.oauth.provider import MCP_SCOPE, OpenVikingOAuthProvider
+    from openviking.server.oauth.provider import (
+        DEFAULT_CLIENT_SCOPE,
+        MCP_SCOPE,
+        OpenVikingOAuthProvider,
+    )
 
     record = await store.register_client(
         redirect_uris=["https://chatgpt.com/connector/oauth/cb"],
@@ -135,8 +139,8 @@ async def test_provider_get_client_defaults_missing_scope(store):
     provider = OpenVikingOAuthProvider(store=store, issuer="https://ov.test")
     client = await provider.get_client(record["client_id"])
     assert client is not None
-    assert client.scope == MCP_SCOPE
-    # The exact request that failed in the field: /authorize?scope=mcp.
+    assert client.scope == DEFAULT_CLIENT_SCOPE
+    # Resource access remains independently valid for the mcp scope.
     assert client.validate_scope(MCP_SCOPE) == [MCP_SCOPE]
 
 

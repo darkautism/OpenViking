@@ -34,7 +34,11 @@ from pydantic import AnyHttpUrl, BaseModel, Field
 
 from openviking.server.auth import get_request_context
 from openviking.server.identity import RequestContext
-from openviking.server.oauth.provider import MCP_SCOPE, OpenVikingOAuthProvider
+from openviking.server.oauth.provider import (
+    MCP_SCOPE,
+    OFFLINE_ACCESS_SCOPE,
+    OpenVikingOAuthProvider,
+)
 from openviking.server.oauth.storage import OAuthStore
 from openviking_cli.exceptions import (
     InvalidArgumentError,
@@ -240,7 +244,7 @@ async def oauth_authorization_server_metadata(request: Request) -> JSONResponse:
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code", "refresh_token"],
         "token_endpoint_auth_methods_supported": ["none"],
-        "scopes_supported": [MCP_SCOPE],
+        "scopes_supported": [MCP_SCOPE, OFFLINE_ACCESS_SCOPE],
         "revocation_endpoint": f"{issuer}/revoke",
         "revocation_endpoint_auth_methods_supported": ["none"],
         "code_challenge_methods_supported": ["S256"],

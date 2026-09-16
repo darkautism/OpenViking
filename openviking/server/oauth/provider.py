@@ -42,10 +42,12 @@ ACCESS_TOKEN_PREFIX = "ovat_"
 REFRESH_TOKEN_PREFIX = "ovrt_"
 AUTH_CODE_PREFIX = "ovac_"
 
-# The only scope OpenViking defines. Single source for the three places that
-# must agree on it: the RFC 9728 PRM document (router.py), the DCR default
-# (app.py ClientRegistrationOptions), and the missing-scope fallback below.
+# OAuth scopes used by MCP clients. ``mcp`` authorizes the protected resource;
+# ``offline_access`` is an authorization-server scope used by ChatGPT to retain
+# refresh-token access. The protected-resource metadata advertises only ``mcp``.
 MCP_SCOPE = "mcp"
+OFFLINE_ACCESS_SCOPE = "offline_access"
+DEFAULT_CLIENT_SCOPE = f"{MCP_SCOPE} {OFFLINE_ACCESS_SCOPE}"
 
 # Primary authorize page: a /studio SPA route that runs in the same tab as
 # the user's Studio session, so it can read the session-stored API key.
@@ -131,7 +133,7 @@ class OpenVikingOAuthProvider(
             # scope our PRM document advertises — the SDK's validate_scope
             # treats a scope-less client as "nothing authorized". Fall back to
             # the default grant instead.
-            scope=record.get("scope") or MCP_SCOPE,
+            scope=record.get("scope") or DEFAULT_CLIENT_SCOPE,
             client_name=record.get("client_name"),
             client_id_issued_at=record["created_at"],
         )
