@@ -165,6 +165,9 @@ async def test_metadata_endpoint(client):
     assert "authorization_code" in body["grant_types_supported"]
     assert "refresh_token" in body["grant_types_supported"]
     assert body["registration_endpoint"]
+    assert body["token_endpoint_auth_methods_supported"] == ["none"]
+    assert body["revocation_endpoint_auth_methods_supported"] == ["none"]
+    assert body["scopes_supported"] == [MCP_SCOPE]
 
 
 @pytest.mark.asyncio

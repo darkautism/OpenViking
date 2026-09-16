@@ -221,6 +221,39 @@ def _public_origin(request: Request) -> str:
     return f"{proto.split(',', 1)[0].strip()}://{host.split(',', 1)[0].strip()}"
 
 
+@router.get("/.well-known/oauth-authorization-server")
+async def oauth_authorization_server_metadata(request: Request) -> JSONResponse:
+    """RFC 8414 metadata matching OpenViking's public PKCE client behavior.
+
+    The MCP SDK currently advertises client-secret authentication methods
+    even though OpenViking normalizes every dynamically registered client to
+    ``token_endpoint_auth_method=none``.  Serve our own metadata route before
+    the SDK route so clients such as ChatGPT see the authentication method
+    that the token endpoint actually accepts.
+    """
+    issuer = _public_origin(request).rstrip("/")
+    metadata = {
+        "issuer": f"{issuer}/",
+        "authorization_endpoint": f"{issuer}/authorize",
+        "token_endpoint": f"{issuer}/token",
+        "registration_endpoint": f"{issuer}/register",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "token_endpoint_auth_methods_supported": ["none"],
+        "scopes_supported": [MCP_SCOPE],
+        "revocation_endpoint": f"{issuer}/revoke",
+        "revocation_endpoint_auth_methods_supported": ["none"],
+        "code_challenge_methods_supported": ["S256"],
+    }
+    return JSONResponse(
+        metadata,
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
 @router.get("/.well-known/oauth-protected-resource")
 @router.get("/.well-known/oauth-protected-resource/mcp")
 async def oauth_protected_resource(request: Request) -> JSONResponse:
